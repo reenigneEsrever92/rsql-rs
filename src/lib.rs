@@ -43,9 +43,6 @@ pub enum Operator {
 #[derive(Debug, PartialEq)]
 pub enum Value<'a> {
     String(&'a str),
-    StringBetween(&'a str),
-    StringStart(&'a str),
-    StringEnd(&'a str),
     Number(u64),
 }
 
@@ -116,11 +113,6 @@ fn operator(input: &str) -> IResult<&str, Operator> {
 
 fn value<'a>(input: &'a str) -> IResult<&'a str, Value> {
     return alt((
-        // map(string_between, |string: &'a str| {
-        //     Value::StringBetween(string)
-        // }),
-        // map(string_start, |string: &'a str| Value::StringStart(string)),
-        // map(string_end, |string: &'a str| Value::StringEnd(string)),
         map(quoted, |string: &'a str| Value::String(string)),
         map(digit1, |number: &'a str| {
             Value::Number(number.parse::<u64>().unwrap())
@@ -132,37 +124,17 @@ fn quoted(i: &str) -> IResult<&str, &str> {
     preceded(tag("\""), cut(terminated(string, tag("\""))))(i)
 }
 
-fn string_between(i: &str) -> IResult<&str, &str> {
-    preceded(tag("\"*"), cut(terminated(string, tag("*\""))))(i)
-}
-
-fn string_start(i: &str) -> IResult<&str, &str> {
-    preceded(tag("\""), cut(terminated(string, tag("*\""))))(i)
-}
-
-fn string_end(i: &str) -> IResult<&str, &str> {
-    preceded(tag("\"*"), cut(terminated(string, tag("\""))))(i)
-}
-
 fn string<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
     escaped(alphanumeric1, '\\', one_of("\"n\\"))(i)
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        expression, quoted, stmt, string_end, string_start, Expression, Operator, Stmt, Value,
-    };
+    use crate::{expression, quoted, stmt, Expression, Operator, Stmt, Value};
 
     #[test]
     fn test_string() {
         let (_, result) = quoted(r#""test""#).unwrap();
-        assert_eq!(result, "test");
-
-        let (_, result) = string_end(r#""*test""#).unwrap();
-        assert_eq!(result, "test");
-
-        let (_, result) = string_start(r#""test*""#).unwrap();
         assert_eq!(result, "test");
     }
 
