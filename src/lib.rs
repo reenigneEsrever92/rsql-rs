@@ -1,10 +1,10 @@
 use nom::{
     branch::alt,
     bytes::complete::{escaped, tag},
-    character::complete::{alphanumeric1, char, digit1, one_of},
+    character::complete::{alphanumeric1, char, digit1, multispace0, one_of},
     combinator::{cut, map},
     error::ParseError,
-    sequence::{preceded, terminated, tuple},
+    sequence::{delimited, preceded, terminated, tuple},
     IResult,
 };
 
@@ -46,10 +46,9 @@ pub enum Value<'a> {
     Number(u64),
 }
 
-pub fn parse_query(input: &str) -> Result<Rsql, nom::Err<nom::error::Error<&str>>> {
-    Ok(Rsql {
-        expression: expression(input)?.1,
-    })
+pub fn parse_rsql(input: &str) -> Result<Rsql, nom::Err<nom::error::Error<&str>>> {
+    let (_, expression) = expression(input)?;
+    Ok(Rsql { expression })
 }
 
 fn expression(input: &str) -> IResult<&str, Expression> {
@@ -57,13 +56,17 @@ fn expression(input: &str) -> IResult<&str, Expression> {
 }
 
 fn stmt_expression(input: &str) -> IResult<&str, Expression> {
-    alt((map(stmt, Expression::Stmt), group))(input)
+    alt((map(stmt, Expression::Stmt), preceded(multispace0, group)))(input)
 }
 
 fn or_expression(input: &str) -> IResult<&str, Expression> {
     alt((
         map(
-            tuple((and_expression, char(','), and_expression)),
+            tuple((
+                and_expression,
+                preceded(multispace0, char(',')),
+                and_expression,
+            )),
             |(e1, _, e2)| Expression::Or(Box::new(e1), Box::new(e2)),
         ),
         and_expression,
@@ -73,7 +76,11 @@ fn or_expression(input: &str) -> IResult<&str, Expression> {
 fn and_expression(input: &str) -> IResult<&str, Expression> {
     alt((
         map(
-            tuple((stmt_expression, char(';'), stmt_expression)),
+            tuple((
+                stmt_expression,
+                preceded(multispace0, char(';')),
+                stmt_expression,
+            )),
             |(e1, _, e2)| Expression::And(Box::new(e1), Box::new(e2)),
         ),
         stmt_expression,
@@ -99,33 +106,39 @@ fn stmt(input: &str) -> IResult<&str, Stmt<'_>> {
 }
 
 fn operator(input: &str) -> IResult<&str, Operator> {
-    alt((
-        map(tag("=="), |_| Operator::Eq),
-        map(tag("!="), |_| Operator::Neq),
-        map(tag(">"), |_| Operator::Gt),
-        map(tag(">="), |_| Operator::Gte),
-        map(tag("<"), |_| Operator::Lt),
-        map(tag("<="), |_| Operator::Lte),
-        map(tag("=in="), |_| Operator::In),
-        map(tag("=out="), |_| Operator::Out),
-    ))(input)
+    preceded(
+        multispace0,
+        alt((
+            map(tag("=="), |_| Operator::Eq),
+            map(tag("!="), |_| Operator::Neq),
+            map(tag(">"), |_| Operator::Gt),
+            map(tag(">="), |_| Operator::Gte),
+            map(tag("<"), |_| Operator::Lt),
+            map(tag("<="), |_| Operator::Lte),
+            map(tag("=in="), |_| Operator::In),
+            map(tag("=out="), |_| Operator::Out),
+        )),
+    )(input)
 }
 
 fn value<'a>(input: &'a str) -> IResult<&'a str, Value> {
     return alt((
         map(quoted, |string: &'a str| Value::String(string)),
-        map(digit1, |number: &'a str| {
+        map(preceded(multispace0, digit1), |number: &'a str| {
             Value::Number(number.parse::<u64>().unwrap())
         }),
     ))(input);
 }
 
 fn quoted(i: &str) -> IResult<&str, &str> {
-    preceded(tag("\""), cut(terminated(string, tag("\""))))(i)
+    preceded(
+        multispace0,
+        preceded(tag("\""), cut(terminated(string, tag("\"")))),
+    )(i)
 }
 
 fn string<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
-    escaped(alphanumeric1, '\\', one_of("\"n\\"))(i)
+    preceded(multispace0, escaped(alphanumeric1, '\\', one_of("\"n\\")))(i)
 }
 
 #[cfg(test)]
@@ -163,7 +176,7 @@ mod test {
 
     #[test]
     fn test_expression() {
-        let (_, result) = expression("test==5,test==6").unwrap();
+        let (_, result) = expression("test==5, test==6").unwrap();
         assert_eq!(
             result,
             Expression::Or(
@@ -180,7 +193,7 @@ mod test {
             )
         );
 
-        let (_, result) = expression("test==5;test==6").unwrap();
+        let (_, result) = expression("   test==5 ;test==6").unwrap();
         assert_eq!(
             result,
             Expression::And(
@@ -197,7 +210,7 @@ mod test {
             )
         );
 
-        let (_, result) = expression("test==5,test==6;test==7").unwrap();
+        let (_, result) = expression("test==5 ,   test==6;test==7  ").unwrap();
         assert_eq!(
             result,
             Expression::Or(
@@ -221,7 +234,7 @@ mod test {
             )
         );
 
-        let (_, result) = expression("(test==5,test==6)").unwrap();
+        let (_, result) = expression("(test==5 ,test==6)").unwrap();
         assert_eq!(
             result,
             Expression::Or(
@@ -262,7 +275,7 @@ mod test {
             )
         );
 
-        let (_, result) = expression("test==5,(test==6,test==7)").unwrap();
+        let (_, result) = expression("test==5, (test==6,test==7)").unwrap();
         assert_eq!(
             result,
             Expression::Or(
@@ -286,7 +299,7 @@ mod test {
             )
         );
 
-        let (_, result) = expression(r#"test=="5sda""#).unwrap();
+        let (_, result) = expression(r#"test== "5sda""#).unwrap();
         assert_eq!(
             result,
             Expression::Stmt(Stmt {
