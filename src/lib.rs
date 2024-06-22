@@ -150,16 +150,6 @@ mod test {
             }
         );
 
-        // let (_, result) = stmt("test==\"start*\"").unwrap();
-        // assert_eq!(
-        //     result,
-        //     Stmt {
-        //         operand: "test",
-        //         operator: Operator::Eq,
-        //         value: Value::StringStart("start")
-        //     }
-        // );
-
         let (_, result) = stmt("test==\"start\"").unwrap();
         assert_eq!(
             result,
@@ -269,6 +259,30 @@ mod test {
                     operator: Operator::Eq,
                     value: Value::Number(7)
                 }))
+            )
+        );
+
+        let (_, result) = expression("test==5,(test==6,test==7)").unwrap();
+        assert_eq!(
+            result,
+            Expression::Or(
+                Box::new(Expression::Stmt(Stmt {
+                    operand: "test",
+                    operator: Operator::Eq,
+                    value: Value::Number(5)
+                })),
+                Box::new(Expression::Or(
+                    Box::new(Expression::Stmt(Stmt {
+                        operand: "test",
+                        operator: Operator::Eq,
+                        value: Value::Number(6)
+                    })),
+                    Box::new(Expression::Stmt(Stmt {
+                        operand: "test",
+                        operator: Operator::Eq,
+                        value: Value::Number(7)
+                    })),
+                )),
             )
         );
 
