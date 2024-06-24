@@ -1,10 +1,17 @@
 use nom::{
     branch::alt,
-    bytes::complete::{escaped, tag},
-    character::complete::{alphanumeric1, char, digit1, multispace0, one_of},
-    combinator::{cut, map},
+    bytes::{
+        complete::{escaped, is_not, tag, take_till},
+        streaming::take_until,
+    },
+    character::{
+        complete::{alphanumeric1, char, digit1, multispace0, one_of},
+        streaming::alpha1,
+    },
+    combinator::{cut, map, recognize, value, verify},
     error::ParseError,
-    sequence::{preceded, terminated, tuple},
+    multi::many0_count,
+    sequence::{pair, preceded, terminated, tuple},
     IResult,
 };
 
@@ -93,7 +100,7 @@ fn group(input: &str) -> IResult<&str, Expression> {
 
 fn stmt(input: &str) -> IResult<&str, Stmt<'_>> {
     map(
-        tuple((string, operator, value)),
+        tuple((identifier, operator, val)),
         |(operand, operator, value)| Stmt {
             operand,
             operator,
@@ -118,7 +125,7 @@ fn operator(input: &str) -> IResult<&str, Operator> {
     )(input)
 }
 
-fn value<'a>(input: &'a str) -> IResult<&'a str, Value> {
+fn val<'a>(input: &'a str) -> IResult<&'a str, Value> {
     return alt((
         map(quoted, |string: &'a str| Value::String(string)),
         map(preceded(multispace0, digit1), |number: &'a str| {
@@ -127,15 +134,27 @@ fn value<'a>(input: &'a str) -> IResult<&'a str, Value> {
     ))(input);
 }
 
-fn quoted(i: &str) -> IResult<&str, &str> {
-    preceded(
-        multispace0,
-        preceded(tag("\""), cut(terminated(string, tag("\"")))),
-    )(i)
+fn quoted(input: &str) -> IResult<&str, &str> {
+    map(
+        preceded(
+            multispace0,
+            alt((
+                tuple((tag("\""), take_until("\""), tag("\""))),
+                tuple((tag("'"), take_until("'"), tag("'"))),
+            )),
+        ),
+        |(_, string, _)| string,
+    )(input)
 }
 
-fn string<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
-    preceded(multispace0, escaped(alphanumeric1, '\\', one_of("\"n\\")))(i)
+fn identifier(input: &str) -> IResult<&str, &str> {
+    preceded(
+        multispace0,
+        recognize(pair(
+            alt((alpha1, tag("_"))),
+            many0_count(alt((alphanumeric1, tag("_")))),
+        )),
+    )(input)
 }
 
 #[cfg(test)]
@@ -429,5 +448,11 @@ mod test {
                 value: Value::String("5sda")
             }),
         );
+    }
+
+    #[test]
+    fn test_parse() {
+        quoted("'test'").unwrap();
+        expression("mime_type=in='image/webp';name=='test_name'").unwrap();
     }
 }
