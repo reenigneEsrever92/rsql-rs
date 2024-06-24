@@ -1,17 +1,13 @@
 use nom::{
     branch::alt,
-    bytes::{
-        complete::{escaped, is_not, tag, take_till},
-        streaming::take_until,
-    },
+    bytes::{complete::tag, streaming::take_until},
     character::{
-        complete::{alphanumeric1, char, digit1, multispace0, one_of},
+        complete::{alphanumeric1, char, digit1, multispace0},
         streaming::alpha1,
     },
-    combinator::{cut, map, recognize, value, verify},
-    error::ParseError,
+    combinator::{map, recognize},
     multi::many0_count,
-    sequence::{pair, preceded, terminated, tuple},
+    sequence::{pair, preceded, tuple},
     IResult,
 };
 
@@ -19,7 +15,6 @@ pub use nom::{
     error::{Error, ErrorKind},
     Err,
 };
-use thiserror::Error;
 
 #[derive(Debug, PartialEq)]
 pub struct Rsql<'a> {
