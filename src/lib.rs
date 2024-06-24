@@ -115,10 +115,10 @@ fn operator(input: &str) -> IResult<&str, Operator> {
         alt((
             map(tag("=="), |_| Operator::Eq),
             map(tag("!="), |_| Operator::Neq),
-            map(tag(">"), |_| Operator::Gt),
             map(tag(">="), |_| Operator::Gte),
-            map(tag("<"), |_| Operator::Lt),
+            map(tag(">"), |_| Operator::Gt),
             map(tag("<="), |_| Operator::Lte),
+            map(tag("<"), |_| Operator::Lt),
             map(tag("=in="), |_| Operator::In),
             map(tag("=out="), |_| Operator::Out),
         )),
@@ -159,7 +159,7 @@ fn identifier(input: &str) -> IResult<&str, &str> {
 
 #[cfg(test)]
 mod test {
-    use crate::{expression, quoted, stmt, Expression, Operator, Stmt, Value};
+    use crate::{expression, quoted, stmt, stmt_expression, Expression, Operator, Stmt, Value};
 
     #[test]
     fn test_string() {
@@ -453,6 +453,10 @@ mod test {
     #[test]
     fn test_parse() {
         quoted("'test'").unwrap();
-        expression("mime_type=in='image/webp';name=='test_name'").unwrap();
+        stmt_expression("file_size>=5").unwrap();
+        expression(
+            "(mime_type==\"image/webp\",mime_type==\"image/jpeg\",file_size>=5);name=='test_name'",
+        )
+        .unwrap();
     }
 }
