@@ -8,6 +8,8 @@ use nom::{
     IResult,
 };
 
+pub use nom::{error::Error, Err};
+
 #[derive(Debug, PartialEq)]
 pub struct Rsql<'a> {
     expression: Expression<'a>,
@@ -45,7 +47,7 @@ pub enum Value<'a> {
     Number(u64),
 }
 
-pub fn parse_rsql(input: &str) -> Result<Rsql, nom::Err<nom::error::Error<&str>>> {
+pub fn parse_rsql(input: &str) -> Result<Rsql, Err<Error<&str>>> {
     let (_, expression) = expression(input)?;
     Ok(Rsql { expression })
 }
