@@ -19,7 +19,7 @@ pub use nom::{error::Error, Err};
 
 #[derive(Debug, PartialEq)]
 pub struct Rsql<'a> {
-    expression: Expression<'a>,
+    pub expression: Expression<'a>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -31,9 +31,9 @@ pub enum Expression<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct Stmt<'a> {
-    operand: &'a str,
-    operator: Operator,
-    value: Value<'a>,
+    pub operand: &'a str,
+    pub operator: Operator,
+    pub value: Value<'a>,
 }
 
 #[derive(Debug, PartialEq)]
