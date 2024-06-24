@@ -4,7 +4,7 @@ use nom::{
     character::complete::{alphanumeric1, char, digit1, multispace0, one_of},
     combinator::{cut, map},
     error::ParseError,
-    sequence::{delimited, preceded, terminated, tuple},
+    sequence::{preceded, terminated, tuple},
     IResult,
 };
 
@@ -15,7 +15,6 @@ pub struct Rsql<'a> {
 
 #[derive(Debug, PartialEq)]
 pub enum Expression<'a> {
-    Group(Box<Expression<'a>>),
     Or(Box<Expression<'a>>, Box<Expression<'a>>),
     And(Box<Expression<'a>>, Box<Expression<'a>>),
     Stmt(Stmt<'a>),
@@ -59,14 +58,12 @@ fn stmt_expression(input: &str) -> IResult<&str, Expression> {
     alt((map(stmt, Expression::Stmt), preceded(multispace0, group)))(input)
 }
 
+// "test==5,test==6;test==7"
+// "test==5;test==6,test==7"
 fn or_expression(input: &str) -> IResult<&str, Expression> {
     alt((
         map(
-            tuple((
-                and_expression,
-                preceded(multispace0, char(',')),
-                and_expression,
-            )),
+            tuple((and_expression, preceded(multispace0, char(',')), expression)),
             |(e1, _, e2)| Expression::Or(Box::new(e1), Box::new(e2)),
         ),
         and_expression,
@@ -79,7 +76,7 @@ fn and_expression(input: &str) -> IResult<&str, Expression> {
             tuple((
                 stmt_expression,
                 preceded(multispace0, char(';')),
-                stmt_expression,
+                and_expression,
             )),
             |(e1, _, e2)| Expression::And(Box::new(e1), Box::new(e2)),
         ),
@@ -210,7 +207,7 @@ mod test {
             )
         );
 
-        let (_, result) = expression("test==5 ,   test==6;test==7  ").unwrap();
+        let (_, result) = expression("test==5,test==6;test==7").unwrap();
         assert_eq!(
             result,
             Expression::Or(
@@ -296,6 +293,130 @@ mod test {
                         value: Value::Number(7)
                     })),
                 )),
+            )
+        );
+
+        let (_, result) = expression("test==5;test==6,test==7").unwrap();
+        assert_eq!(
+            result,
+            Expression::Or(
+                Box::new(Expression::And(
+                    Box::new(Expression::Stmt(Stmt {
+                        operand: "test",
+                        operator: Operator::Eq,
+                        value: Value::Number(5)
+                    })),
+                    Box::new(Expression::Stmt(Stmt {
+                        operand: "test",
+                        operator: Operator::Eq,
+                        value: Value::Number(6)
+                    })),
+                )),
+                Box::new(Expression::Stmt(Stmt {
+                    operand: "test",
+                    operator: Operator::Eq,
+                    value: Value::Number(7)
+                })),
+            )
+        );
+
+        let (_, result) = expression("test==5;test==6;test==7").unwrap();
+        assert_eq!(
+            result,
+            Expression::And(
+                Box::new(Expression::Stmt(Stmt {
+                    operand: "test",
+                    operator: Operator::Eq,
+                    value: Value::Number(5)
+                })),
+                Box::new(Expression::And(
+                    Box::new(Expression::Stmt(Stmt {
+                        operand: "test",
+                        operator: Operator::Eq,
+                        value: Value::Number(6)
+                    })),
+                    Box::new(Expression::Stmt(Stmt {
+                        operand: "test",
+                        operator: Operator::Eq,
+                        value: Value::Number(7)
+                    })),
+                )),
+            )
+        );
+
+        let (_, result) = expression("test==5,test==6,test==7;test==8;test==9").unwrap();
+        assert_eq!(
+            result,
+            Expression::Or(
+                Box::new(Expression::Stmt(Stmt {
+                    operand: "test",
+                    operator: Operator::Eq,
+                    value: Value::Number(5)
+                })),
+                Box::new(Expression::Or(
+                    Box::new(Expression::Stmt(Stmt {
+                        operand: "test",
+                        operator: Operator::Eq,
+                        value: Value::Number(6)
+                    })),
+                    Box::new(Expression::And(
+                        Box::new(Expression::Stmt(Stmt {
+                            operand: "test",
+                            operator: Operator::Eq,
+                            value: Value::Number(7)
+                        })),
+                        Box::new(Expression::And(
+                            Box::new(Expression::Stmt(Stmt {
+                                operand: "test",
+                                operator: Operator::Eq,
+                                value: Value::Number(8)
+                            })),
+                            Box::new(Expression::Stmt(Stmt {
+                                operand: "test",
+                                operator: Operator::Eq,
+                                value: Value::Number(9)
+                            })),
+                        )),
+                    )),
+                ))
+            )
+        );
+
+        let (_, result) = expression("(test==5,test==6,test==7);test==8;test==9").unwrap();
+        assert_eq!(
+            result,
+            Expression::And(
+                Box::new(Expression::Or(
+                    Box::new(Expression::Stmt(Stmt {
+                        operand: "test",
+                        operator: Operator::Eq,
+                        value: Value::Number(5)
+                    })),
+                    Box::new(Expression::Or(
+                        Box::new(Expression::Stmt(Stmt {
+                            operand: "test",
+                            operator: Operator::Eq,
+                            value: Value::Number(6)
+                        })),
+                        Box::new(Expression::Stmt(Stmt {
+                            operand: "test",
+                            operator: Operator::Eq,
+                            value: Value::Number(7)
+                        }))
+                    )),
+                )),
+                Box::new(Expression::And(
+                    Box::new(Expression::Stmt(Stmt {
+                        operand: "test",
+                        operator: Operator::Eq,
+                        value: Value::Number(8)
+                    })),
+                    Box::new(Expression::Stmt(Stmt {
+                        operand: "test",
+                        operator: Operator::Eq,
+                        value: Value::Number(9)
+                    })),
+                ))
             )
         );
 
