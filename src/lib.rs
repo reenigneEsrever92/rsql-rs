@@ -58,8 +58,6 @@ fn stmt_expression(input: &str) -> IResult<&str, Expression> {
     alt((map(stmt, Expression::Stmt), preceded(multispace0, group)))(input)
 }
 
-// "test==5,test==6;test==7"
-// "test==5;test==6,test==7"
 fn or_expression(input: &str) -> IResult<&str, Expression> {
     alt((
         map(
