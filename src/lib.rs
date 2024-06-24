@@ -15,7 +15,11 @@ use nom::{
     IResult,
 };
 
-pub use nom::{error::Error, Err};
+pub use nom::{
+    error::{Error, ErrorKind},
+    Err,
+};
+use thiserror::Error;
 
 #[derive(Debug, PartialEq)]
 pub struct Rsql<'a> {
