@@ -171,10 +171,7 @@ fn quoted<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a st
 
 #[cfg(test)]
 mod test {
-    use nom::{
-        error::{convert_error, ErrorKind, VerboseError},
-        Finish,
-    };
+    use nom::error::ErrorKind;
     use nom_supreme::error::ErrorTree;
 
     use crate::{expression, quoted, stmt, Expression, Operator, Stmt, Value};
